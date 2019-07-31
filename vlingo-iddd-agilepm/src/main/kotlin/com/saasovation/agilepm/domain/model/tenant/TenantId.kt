@@ -5,6 +5,10 @@
 // was not distributed with this file, You can obtain
 // one at https://mozilla.org/MPL/2.0/.
 
-package com.saasovation.agilepm.model.product
+package com.saasovation.agilepm.domain.model.tenant
 
-data class ProductOwner(val tenant: Tenant, val username: String)
+data class TenantId(val id: String){
+  companion object {
+    val empty = TenantId("")
+  }
+}
