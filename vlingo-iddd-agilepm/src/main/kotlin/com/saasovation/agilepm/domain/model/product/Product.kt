@@ -8,9 +8,14 @@
 package com.saasovation.agilepm.domain.model.product
 
 import com.saasovation.agilepm.domain.model.ValueObject
+import com.saasovation.agilepm.domain.model.discussion.DiscussionAvailability
+import com.saasovation.agilepm.domain.model.discussion.DiscussionDescriptor
+import com.saasovation.agilepm.domain.model.product.backlogitem.BacklogItem
 import com.saasovation.agilepm.domain.model.tenant.TenantId
 import com.saasovation.agilepm.util.empty
+import io.vlingo.actors.Definition
 import io.vlingo.actors.Stage
+import io.vlingo.actors.World
 import io.vlingo.common.Completes
 import io.vlingo.lattice.model.DomainEvent
 import java.util.UUID
@@ -26,7 +31,7 @@ interface ProductEvents {
   data class ProductDefined(
     val tenantId: TenantId,
     val productId: ProductId,
-    val productOwner: ProductOwner,
+    val productOwnerId: ProductOwnerId,
     val name: String,
     val description: String)
     : DomainEvent() {
@@ -35,13 +40,13 @@ interface ProductEvents {
 
       fun fromDefine(tenantId: TenantId,
                      productId: ProductId,
-                     productOwner: ProductOwner,
+                     productOwnerId: ProductOwnerId,
                      name: String,
                      description: String) =
         ProductDefined(
           tenantId = tenantId,
           productId = productId,
-          productOwner = productOwner,
+          productOwnerId = productOwnerId,
           name = name,
           description = description
         )
@@ -51,66 +56,141 @@ interface ProductEvents {
   data class ProductOwnerChanged(
     val tenantId: TenantId,
     val productId: ProductId,
-    val productOwner: ProductOwner)
+    val productOwnerId: ProductOwnerId)
     : DomainEvent()
+
+  data class ProductDiscussionRequested(
+    val tenantId: TenantId,
+    val productId: ProductId,
+    val productOwnerId: ProductOwnerId,
+    val name: String,
+    val description: String,
+    val discussionAvailability: DiscussionAvailability
+  ) : DomainEvent()
 
 }
 
 interface Product {
 
   companion object {
-    fun define(stage: Stage, tenantId: TenantId, productOwner: ProductOwner, name: String, description: String): Pair<ProductId, Product> {
+    fun define(world: World, tenantId: TenantId, productOwnerId: ProductOwnerId, name: String, description: String): Pair<ProductId, Product> {
+      val stage = world.stage()
 
-      val product = stage.actorFor(Product::class.java, ProductEntity::class.java)
-      val productId = ProductId(UUID.randomUUID().toString())
+      val productAddress = world.addressFactory().uniquePrefixedWith("product-")
 
+      val productId = ProductId(productAddress.idString())
+
+      val definition = Definition.has(
+        ProductEntity::class.java, Definition.parameters(productId.id)
+      )
+
+      val product = stage.actorFor(
+        Product::class.java,
+        definition,
+        productAddress
+      )
       product.define(
-          tenantId = tenantId,
-          productId = productId,
-          productOwner = productOwner,
-          name = name,
-          description = description
+        tenantId = tenantId,
+        productId = productId,
+        productOwnerId = productOwnerId,
+        name = name,
+        description = description
       )
 
       return Pair(productId, product)
     }
+
+    fun find(world: World, productId: ProductId): Completes<Product> {
+
+      val stage = world.stage()
+      val addressFactory = world.addressFactory()
+
+      return stage.actorOf(
+        Product::class.java,
+        addressFactory.from(productId.id)
+      )
+
+    }
+
   }
 
-  fun changeProductOwner(productOwner: ProductOwner): Completes<State>
+  fun changeProductOwner(productOwnerId: ProductOwnerId): Completes<State>
   fun define(tenantId: TenantId,
              productId: ProductId,
-             productOwner: ProductOwner,
+             productOwnerId: ProductOwnerId,
              name: String,
              description: String): Completes<State>
 
+  fun requestProductDiscussion(discussionAvailability: DiscussionAvailability): Completes<Unit>
+
   data class State(
-    val tenantId: TenantId,
-    val productId: ProductId,
-    val productOwner: ProductOwner,
+    val backlogItems: Set<BacklogItem>,
+    val description: String,
+    val productDiscussion: ProductDiscussion,
+    val discussionInitiationId: String,
     val name: String,
-    val description: String) {
+    val productId: ProductId,
+    val productOwnerId: ProductOwnerId,
+    val tenantId: TenantId
+
+  ) {
+
+    data class ProductDiscussion(
+
+      val availability: DiscussionAvailability,
+      val descriptor: DiscussionDescriptor
+
+    ) : ValueObject {
+      companion object {
+        fun fromAvailability(availability: DiscussionAvailability): ProductDiscussion {
+          return ProductDiscussion(
+            availability = availability,
+            descriptor = DiscussionDescriptor.unavailable
+          )
+        }
+
+        val empty = ProductDiscussion(
+          availability = DiscussionAvailability.empty,
+          descriptor = DiscussionDescriptor.empty
+        )
+      }
+    }
 
     fun applyProductDefined(e: ProductEvents.ProductDefined): State =
       copy(
         tenantId = e.tenantId,
         productId = e.productId,
-        productOwner = e.productOwner,
+        productOwnerId = e.productOwnerId,
         name = e.name,
         description = e.description
       )
 
     fun applyProductOwnerChanged(e: ProductEvents.ProductOwnerChanged): State =
       copy(
-        productOwner = e.productOwner
+        productOwnerId = e.productOwnerId
       )
+
+    fun applyProductDiscussionRequested(e: ProductEvents.ProductDiscussionRequested): State {
+
+      val productDiscussion = ProductDiscussion.fromAvailability(e.discussionAvailability)
+
+      return copy(
+        productDiscussion = productDiscussion
+      )
+    }
 
     companion object {
       val empty = State(
-        tenantId = TenantId.empty,
-        productId = ProductId.empty,
-        productOwner = ProductOwner.empty,
+
+        backlogItems = setOf(),
+        description = String.empty(),
+        productDiscussion = ProductDiscussion.empty,
+        discussionInitiationId = String.empty(),
         name = String.empty(),
-        description = String.empty()
+        productId = ProductId.empty,
+        productOwnerId = ProductOwnerId.empty,
+        tenantId = TenantId.empty
+
       )
     }
   }

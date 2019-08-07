@@ -7,12 +7,16 @@
 
 package com.saasovation.agilepm.domain.model.product
 
+import com.saasovation.agilepm.domain.model.discussion.DiscussionAvailability
 import com.saasovation.agilepm.domain.model.tenant.TenantId
+import com.saasovation.agilepm.util.EventSourcedEx
 import io.vlingo.common.Completes
 import io.vlingo.lattice.model.sourcing.EventSourced
 import io.vlingo.lattice.model.sourcing.EventSourced.registerConsumer
+import io.vlingo.lattice.model.sourcing.Sourced
+import io.vlingo.symbio.Source
 
-class ProductEntity(val productId: String) : Product, EventSourced() {
+class ProductEntity(val productId: String) : Product, EventSourcedEx<Product.State>() {
 
   private var state: Product.State
 
@@ -24,8 +28,9 @@ class ProductEntity(val productId: String) : Product, EventSourced() {
     init {
       val thisClass = ProductEntity::class.java
 
-      registerConsumer(thisClass, ProductEvents.ProductDefined::class.java, ProductEntity::applyProductDefined)
-      registerConsumer(thisClass, ProductEvents.ProductOwnerChanged::class.java, ProductEntity::applyProductOwnerChanged)
+      registerConsumerEx(thisClass, ProductEvents.ProductDefined::class.java) { state = state.applyProductDefined(it) }
+      registerConsumerEx(thisClass, ProductEvents.ProductOwnerChanged::class.java) {state = state.applyProductOwnerChanged(it)}
+      registerConsumerEx(thisClass, ProductEvents.ProductDiscussionRequested::class.java) {state = state.applyProductDiscussionRequested(it)}
     }
   }
 
@@ -33,19 +38,19 @@ class ProductEntity(val productId: String) : Product, EventSourced() {
     return streamNameFrom(":", state.tenantId.id, state.productId.id)
   }
 
-  @Suppress("UNCHECKED_CAST")
-  override fun <S> snapshot(): S {
-    return if (currentVersion() % 100 == 0) {
-      state as S
-    } else null as S
+  override fun snapshotEx(): Product.State? {
+    return when {
+      currentVersion() % 100 == 0 -> state
+      else -> null
+    }
   }
 
-  override fun define(tenantId: TenantId, productId: ProductId, productOwner: ProductOwner, name: String, description: String): Completes<Product.State> {
+  override fun define(tenantId: TenantId, productId: ProductId, productOwnerId: ProductOwnerId, name: String, description: String): Completes<Product.State> {
     apply(
       ProductEvents.ProductDefined.fromDefine(
         tenantId = tenantId,
         productId = productId,
-        productOwner = productOwner,
+        productOwnerId = productOwnerId,
         name = name,
         description = description
       ))
@@ -53,18 +58,29 @@ class ProductEntity(val productId: String) : Product, EventSourced() {
     return completes()
   }
 
-  private fun applyProductDefined(e: ProductEvents.ProductDefined) {
-    state = state.applyProductDefined(e)
-  }
-
-  override fun changeProductOwner(productOwner: ProductOwner): Completes<Product.State> {
-    apply(ProductEvents.ProductOwnerChanged(state.tenantId, state.productId, productOwner))
+  override fun changeProductOwner(productOwnerId: ProductOwnerId): Completes<Product.State> {
+    apply(ProductEvents.ProductOwnerChanged(state.tenantId, state.productId, productOwnerId))
 
     return completes()
   }
 
-  private fun applyProductOwnerChanged(e: ProductEvents.ProductOwnerChanged) {
-    state = state.applyProductOwnerChanged(e)
+  override fun requestProductDiscussion(discussionAvailability: DiscussionAvailability): Completes<Unit> {
+
+    if (!state.productDiscussion.availability.isReady()) {
+
+      apply(
+        ProductEvents.ProductDiscussionRequested(
+          tenantId = state.tenantId,
+          productId = state.productId,
+          productOwnerId = state.productOwnerId,
+          name = state.name,
+          description = state.description,
+          discussionAvailability = discussionAvailability
+        )
+      )
+    }
+
+    return completes()
   }
 }
 

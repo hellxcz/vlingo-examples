@@ -8,6 +8,8 @@ enum class DiscussionAvailability {
   REQUESTED,
   READY;
 
+  fun isReady(): Boolean  = false
+
   companion object {
 
     val empty = DiscussionAvailability.__EMPTY

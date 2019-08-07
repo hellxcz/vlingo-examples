@@ -5,7 +5,10 @@ import com.saasovation.agilepm.util.empty
 
 data class DiscussionDescriptor(val id: String) : ValueObject {
   companion object {
+    private val UNDEFINED_ID = "UNDEFINED"
+
     val empty = DiscussionDescriptor(id = String.empty())
+    val unavailable = DiscussionDescriptor(id = UNDEFINED_ID)
   }
 
 }
