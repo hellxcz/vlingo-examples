@@ -8,12 +8,13 @@
 package com.saasovation.agilepm.domain.model.product
 
 import com.saasovation.agilepm.domain.model.tenant.TenantId
+import com.saasovation.agilepm.util.empty
 
 data class ProductOwner(val tenantId: TenantId, val username: String){
   companion object{
     val empty = ProductOwner(
       tenantId = TenantId.empty,
-      username = ""
+      username = String.empty()
     )
   }
 }

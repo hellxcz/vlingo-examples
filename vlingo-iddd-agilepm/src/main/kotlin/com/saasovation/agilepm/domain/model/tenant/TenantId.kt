@@ -7,8 +7,10 @@
 
 package com.saasovation.agilepm.domain.model.tenant
 
+import com.saasovation.agilepm.util.empty
+
 data class TenantId(val id: String){
   companion object {
-    val empty = TenantId("")
+    val empty = TenantId(id = String.empty())
   }
 }

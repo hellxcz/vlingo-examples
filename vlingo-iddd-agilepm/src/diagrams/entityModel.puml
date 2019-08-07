@@ -1,0 +1,205 @@
+@startuml
+
+package tenant {
+
+    class TenantId
+    class Tenant
+}
+
+package team {
+    class TeamMemberId
+    class ProductOwnerId
+
+}
+
+package discussion {
+    class DiscussionAvailability
+    class DiscussionDescriptor
+}
+
+package product {
+
+    class ProductId {
+    }
+
+    package release {
+        class ReleaseId
+
+        class Release {
+
+        }
+    }
+
+    package sprint {
+
+        class SprintId
+
+        class Sprint {
+        }
+
+    }
+
+    package backlogItem {
+
+        class BacklogItemId
+
+        class BusinessPriorityRatings {
+            benefit : int
+            cost : int
+            penalty : int
+            risk : int
+        }
+
+        class BusinessPriority {
+            ratings : BusinessPriorityRatings
+        }
+
+        BusinessPriority *-- BusinessPriorityRatings
+
+        class BacklogItemDiscussion {
+             availability: DiscussionAvailability
+             descriptor: DiscussionDescriptor
+        }
+
+        BacklogItemDiscussion *--- DiscussionAvailability
+        BacklogItemDiscussion *--- DiscussionDescriptor
+
+        class BacklogItemStatus
+        class StoryPoints
+        class Task
+        class TaskId
+        class BacklogItemType
+
+        class BacklogItem {
+            associatedIssueId
+            backlogItemId : BacklogItemId
+            businessPriority : BusinessPriority
+            category
+            discussion : BacklogItemDiscussion
+            discussionInitiationId
+            productId : ProductId
+            releaseId : ReleaseId
+            sprintId : SprintId
+            status : BacklogItemStatus
+            story
+            storyPoints: StoryPoints
+            summary
+            tasks : Task[]
+            tenantId: TenantId
+            type: BacklogItemType
+        }
+
+        BacklogItem *--- BusinessPriority
+        BacklogItem *--- BacklogItemId
+        BacklogItem *--- BacklogItemDiscussion
+        BacklogItem *--- ProductId
+        BacklogItem *--- ReleaseId
+        BacklogItem *--- SprintId
+        BacklogItem *--- BacklogItemStatus
+        BacklogItem *--- StoryPoints
+        BacklogItem *--- "0..n" Task
+        BacklogItem *--- TenantId
+        BacklogItem *--- BacklogItemType
+
+    }
+
+    class ProductDiscussion {
+        availability: DiscussionAvailability
+        descriptor: DiscussionDescriptor
+    }
+
+    ProductDiscussion *--- DiscussionAvailability
+    ProductDiscussion *--- DiscussionDescriptor
+
+    class ProductBacklogItem {
+        private BacklogItemId backlogItemId;
+        private int ordering;
+        private ProductId productId;
+        private TenantId tenantId;
+    }
+
+    ProductBacklogItem *--- ProductId
+    ProductBacklogItem *--- BacklogItemId
+    ProductBacklogItem *--- TenantId
+
+    class Product {
+
+        backlogItems : Set<ProductBacklogItem>
+        description: String
+        discussion: ProductDiscussion
+        discussionInitiationId: String
+        name: String
+        productId: ProductId
+        productOwnerId: ProductOwnerId
+        tenantId: TenantId
+
+    }
+
+    Product *--- "0..n" ProductBacklogItem
+    Product *--- ProductDiscussion
+    Product *--- ProductId
+    Product *--- ProductOwnerId
+    Product *--- TenantId
+
+}
+
+
+package team {
+
+    class MemberChangeTracker {
+        emailAddressChangedOn
+        enablingOn
+        nameChangedOn
+    }
+
+    class Member {
+        changeTracker: MemberChangeTracker
+        emailAddress: String
+        enabled = true: boolean
+        firstName: String
+        lastName: String
+        tenantId: TenantId
+        username: String
+    }
+
+    Member *--- MemberChangeTracker
+    Member *--- TenantId
+
+    class ProductOwner{
+        aTenantId: TenantId
+        aUsername: String
+        aFirstName: String
+        aLastName: String
+        anEmailAddress: String
+        anInitializedOn: Date
+    }
+    ProductOwner *--- TenantId
+
+    class TeamMember {
+        tenantId : TenantId
+        username : String
+        firstName : String
+        lastName : String
+        emailAddress : String
+        initializedOn : Date
+    }
+
+    TeamMember *--- TenantId
+
+    class Team {
+
+        name: String
+        productOwner: ProductOwner
+        teamMembers: Set<TeamMember>
+        tenantId: TenantId
+
+    }
+
+    Team *--- ProductOwner
+    Team *--- "0..n" TeamMember
+    Team *--- "0..n" TenantId
+
+}
+
+
+@enduml

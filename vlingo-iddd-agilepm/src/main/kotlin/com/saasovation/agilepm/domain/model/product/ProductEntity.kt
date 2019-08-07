@@ -7,6 +7,7 @@
 
 package com.saasovation.agilepm.domain.model.product
 
+import com.saasovation.agilepm.domain.model.tenant.TenantId
 import io.vlingo.common.Completes
 import io.vlingo.lattice.model.sourcing.EventSourced
 import io.vlingo.lattice.model.sourcing.EventSourced.registerConsumer
@@ -39,8 +40,15 @@ class ProductEntity(val productId: String) : Product, EventSourced() {
     } else null as S
   }
 
-  override fun define(define: Product.Companion.Define): Completes<Product.State> {
-    apply(ProductEvents.ProductDefined.fromDefine(define))
+  override fun define(tenantId: TenantId, productId: ProductId, productOwner: ProductOwner, name: String, description: String): Completes<Product.State> {
+    apply(
+      ProductEvents.ProductDefined.fromDefine(
+        tenantId = tenantId,
+        productId = productId,
+        productOwner = productOwner,
+        name = name,
+        description = description
+      ))
 
     return completes()
   }
@@ -55,7 +63,7 @@ class ProductEntity(val productId: String) : Product, EventSourced() {
     return completes()
   }
 
-  private fun applyProductOwnerChanged(e: ProductEvents.ProductOwnerChanged){
+  private fun applyProductOwnerChanged(e: ProductEvents.ProductOwnerChanged) {
     state = state.applyProductOwnerChanged(e)
   }
 }
