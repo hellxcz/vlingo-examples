@@ -9,6 +9,7 @@ enum class DiscussionAvailability {
   READY;
 
   fun isReady(): Boolean  = false
+  fun isRequested(): Boolean = false
 
   companion object {
 

@@ -14,11 +14,9 @@ import com.saasovation.agilepm.domain.model.product.backlogitem.BacklogItem
 import com.saasovation.agilepm.domain.model.tenant.TenantId
 import com.saasovation.agilepm.util.empty
 import io.vlingo.actors.Definition
-import io.vlingo.actors.Stage
 import io.vlingo.actors.World
 import io.vlingo.common.Completes
 import io.vlingo.lattice.model.DomainEvent
-import java.util.UUID
 
 data class ProductId(val id: String) : ValueObject {
   companion object {
@@ -27,7 +25,7 @@ data class ProductId(val id: String) : ValueObject {
 }
 
 interface ProductEvents {
-
+  
   data class ProductDefined(
     val tenantId: TenantId,
     val productId: ProductId,
@@ -35,9 +33,9 @@ interface ProductEvents {
     val name: String,
     val description: String)
     : DomainEvent() {
-
+    
     companion object {
-
+      
       fun fromDefine(tenantId: TenantId,
                      productId: ProductId,
                      productOwnerId: ProductOwnerId,
@@ -52,13 +50,13 @@ interface ProductEvents {
         )
     }
   }
-
+  
   data class ProductOwnerChanged(
     val tenantId: TenantId,
     val productId: ProductId,
     val productOwnerId: ProductOwnerId)
     : DomainEvent()
-
+  
   data class ProductDiscussionRequested(
     val tenantId: TenantId,
     val productId: ProductId,
@@ -67,28 +65,34 @@ interface ProductEvents {
     val description: String,
     val discussionAvailability: DiscussionAvailability
   ) : DomainEvent()
-
+  
+  data class ProductDiscussionInitiated(
+    val tenantId: TenantId,
+    val productId: ProductId,
+    val productDiscussion: Product.ProductDiscussion
+  ) : DomainEvent()
 }
 
 interface Product {
-
+  
   companion object {
     fun define(world: World, tenantId: TenantId, productOwnerId: ProductOwnerId, name: String, description: String): Pair<ProductId, Product> {
       val stage = world.stage()
-
+      
       val productAddress = world.addressFactory().uniquePrefixedWith("product-")
-
+      
       val productId = ProductId(productAddress.idString())
-
+      
       val definition = Definition.has(
         ProductEntity::class.java, Definition.parameters(productId.id)
       )
-
+      
       val product = stage.actorFor(
         Product::class.java,
         definition,
         productAddress
       )
+      
       product.define(
         tenantId = tenantId,
         productId = productId,
@@ -96,33 +100,36 @@ interface Product {
         name = name,
         description = description
       )
-
+      
       return Pair(productId, product)
     }
-
-    fun find(world: World, productId: ProductId): Completes<Product> {
-
+    
+    fun find(world: World, productId: ProductId, tenantId: TenantId): Completes<Product> {
+      
       val stage = world.stage()
       val addressFactory = world.addressFactory()
-
+      
+      val productIdentity = { productId: ProductId, tenantId: TenantId -> "${tenantId.id}_${productId.id}" }
+      
       return stage.actorOf(
         Product::class.java,
-        addressFactory.from(productId.id)
+        addressFactory.from(
+          productIdentity(productId, tenantId)
+        )
       )
-
     }
-
   }
-
+  
   fun changeProductOwner(productOwnerId: ProductOwnerId): Completes<State>
   fun define(tenantId: TenantId,
              productId: ProductId,
              productOwnerId: ProductOwnerId,
              name: String,
              description: String): Completes<State>
-
+  
   fun requestProductDiscussion(discussionAvailability: DiscussionAvailability): Completes<Unit>
-
+  fun initiateDiscussion(descriptor: DiscussionDescriptor): Completes<Unit>
+  
   data class State(
     val backlogItems: Set<BacklogItem>,
     val description: String,
@@ -132,30 +139,9 @@ interface Product {
     val productId: ProductId,
     val productOwnerId: ProductOwnerId,
     val tenantId: TenantId
-
+  
   ) {
-
-    data class ProductDiscussion(
-
-      val availability: DiscussionAvailability,
-      val descriptor: DiscussionDescriptor
-
-    ) : ValueObject {
-      companion object {
-        fun fromAvailability(availability: DiscussionAvailability): ProductDiscussion {
-          return ProductDiscussion(
-            availability = availability,
-            descriptor = DiscussionDescriptor.unavailable
-          )
-        }
-
-        val empty = ProductDiscussion(
-          availability = DiscussionAvailability.empty,
-          descriptor = DiscussionDescriptor.empty
-        )
-      }
-    }
-
+    
     fun applyProductDefined(e: ProductEvents.ProductDefined): State =
       copy(
         tenantId = e.tenantId,
@@ -164,24 +150,24 @@ interface Product {
         name = e.name,
         description = e.description
       )
-
+    
     fun applyProductOwnerChanged(e: ProductEvents.ProductOwnerChanged): State =
       copy(
         productOwnerId = e.productOwnerId
       )
-
+    
     fun applyProductDiscussionRequested(e: ProductEvents.ProductDiscussionRequested): State {
-
+      
       val productDiscussion = ProductDiscussion.fromAvailability(e.discussionAvailability)
-
+      
       return copy(
         productDiscussion = productDiscussion
       )
     }
-
+    
     companion object {
       val empty = State(
-
+        
         backlogItems = setOf(),
         description = String.empty(),
         productDiscussion = ProductDiscussion.empty,
@@ -190,8 +176,30 @@ interface Product {
         productId = ProductId.empty,
         productOwnerId = ProductOwnerId.empty,
         tenantId = TenantId.empty
-
+      
       )
     }
   }
+  
+  data class ProductDiscussion(
+    
+    val availability: DiscussionAvailability,
+    val descriptor: DiscussionDescriptor
+  
+  ) : ValueObject {
+    companion object {
+      fun fromAvailability(availability: DiscussionAvailability): ProductDiscussion {
+        return ProductDiscussion(
+          availability = availability,
+          descriptor = DiscussionDescriptor.unavailable
+        )
+      }
+      
+      val empty = ProductDiscussion(
+        availability = DiscussionAvailability.empty,
+        descriptor = DiscussionDescriptor.empty
+      )
+    }
+  }
+  
 }

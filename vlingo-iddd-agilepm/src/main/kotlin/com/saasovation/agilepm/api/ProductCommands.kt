@@ -11,3 +11,9 @@ data class RequestProductDiscussionCommand(
   val tenantId: String,
   val productId: String
 )
+
+data class InitiateDiscussionCommand(
+  val tenantId: String,
+  val productId: String,
+  val discussionId: String
+)

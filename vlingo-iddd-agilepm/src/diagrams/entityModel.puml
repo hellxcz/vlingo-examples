@@ -189,7 +189,7 @@ package team {
     class Team {
 
         name: String
-        productOwner: ProductOwner
+        productOwnerId: ProductOwner
         teamMembers: Set<TeamMember>
         tenantId: TenantId
 

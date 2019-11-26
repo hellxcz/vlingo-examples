@@ -1,8 +1,10 @@
 package com.saasovation.agilepm.application.product
 
+import com.saasovation.agilepm.api.InitiateDiscussionCommand
 import com.saasovation.agilepm.api.NewProductCommand
 import com.saasovation.agilepm.api.RequestProductDiscussionCommand
 import com.saasovation.agilepm.domain.model.discussion.DiscussionAvailability
+import com.saasovation.agilepm.domain.model.discussion.DiscussionDescriptor
 import com.saasovation.agilepm.domain.model.product.Product
 import com.saasovation.agilepm.domain.model.product.ProductId
 import com.saasovation.agilepm.domain.model.product.ProductOwnerId
@@ -14,6 +16,7 @@ import io.vlingo.http.ResponseHeader.Location
 import io.vlingo.http.ResponseHeader.headers
 import io.vlingo.http.ResponseHeader.of
 import io.vlingo.http.resource.Resource
+import io.vlingo.http.resource.ResourceBuilder.get
 import io.vlingo.http.resource.ResourceBuilder.post
 import io.vlingo.http.resource.ResourceBuilder.resource
 
@@ -52,6 +55,25 @@ constructor(
     )
   }
 
+  fun initiateDiscussion(cmd: InitiateDiscussionCommand): Completes<Response> {
+  
+    TODO("introduce applicationServiceLifetimeCycle")
+    
+    val productId = ProductId(cmd.productId)
+    val tenantId = TenantId(cmd.tenantId)
+    
+    Product
+      .find(world, productId, tenantId)
+      .andThenTo { it.initiateDiscussion(DiscussionDescriptor(cmd.discussionId)) }
+      .andThenTo {
+        Completes.withSuccess(
+          Response.of(Response.Status.Ok)
+        )
+      }
+      .otherwise{ Response.of(Response.Status.NotFound, urlLocation(productId)) }
+
+  }
+  
   fun newProductWithDiscussion() {
     TODO("product.define is missing discussion creation")
   }
@@ -59,9 +81,10 @@ constructor(
   fun requestDiscussion(cmd: RequestProductDiscussionCommand): Completes<Response> {
 
     val productId = ProductId(cmd.productId)
+    val tenantId = TenantId(cmd.tenantId)
 
     return Product
-      .find(world, productId)
+      .find(world, productId, tenantId)
       .andThenTo { it.requestProductDiscussion(requestDiscussionIfAvailable()) }
       .andThenTo {
         Completes.withSuccess(
@@ -88,7 +111,17 @@ constructor(
     resource("Product resource",
       post("$ROOT_URL")
         .body(NewProductCommand::class.java)
-        .handle(this::newProduct)
+        .handle(this::newProduct),
+      post("$ROOT_URL")
+        .body(InitiateDiscussionCommand::class.java)
+        .handle(this::initiateDiscussion),
+      
+      // TODO - newProductWithDiscussion is missing !!!
+      
+      post("$ROOT_URL")
+        .body(RequestProductDiscussionCommand::class.java)
+        .handle(this::requestDiscussion)
+      
     )
 
   private fun urlLocation(productId: ProductId): String {

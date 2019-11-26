@@ -8,13 +8,10 @@
 package com.saasovation.agilepm.domain.model.product
 
 import com.saasovation.agilepm.domain.model.discussion.DiscussionAvailability
+import com.saasovation.agilepm.domain.model.discussion.DiscussionDescriptor
 import com.saasovation.agilepm.domain.model.tenant.TenantId
 import com.saasovation.agilepm.util.EventSourcedEx
 import io.vlingo.common.Completes
-import io.vlingo.lattice.model.sourcing.EventSourced
-import io.vlingo.lattice.model.sourcing.EventSourced.registerConsumer
-import io.vlingo.lattice.model.sourcing.Sourced
-import io.vlingo.symbio.Source
 
 class ProductEntity(val productId: String) : Product, EventSourcedEx<Product.State>() {
 
@@ -80,6 +77,23 @@ class ProductEntity(val productId: String) : Product, EventSourcedEx<Product.Sta
       )
     }
 
+    return completes()
+  }
+  
+  override fun initiateDiscussion(descriptor: DiscussionDescriptor): Completes<Unit> {
+    
+    if (state.productDiscussion.availability.isRequested()) {
+      
+      apply(
+        ProductEvents.ProductDiscussionInitiated(
+          tenantId = state.tenantId,
+          productId = state.productId,
+          productDiscussion = state.productDiscussion
+        )
+      )
+      
+    }
+    
     return completes()
   }
 }
