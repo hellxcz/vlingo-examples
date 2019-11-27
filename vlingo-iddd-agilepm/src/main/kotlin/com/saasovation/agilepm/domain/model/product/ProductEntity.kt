@@ -50,13 +50,20 @@ class ProductEntity(val productId: String) : Product, EventSourcedEx<Product.Sta
         productOwnerId = productOwnerId,
         name = name,
         description = description
-      ))
+      )
+    )
 
     return completes()
   }
 
   override fun changeProductOwner(productOwnerId: ProductOwnerId): Completes<Product.State> {
-    apply(ProductEvents.ProductOwnerChanged(state.tenantId, state.productId, productOwnerId))
+    apply(
+      ProductEvents.ProductOwnerChanged(
+        tenantId = state.tenantId,
+        productId = state.productId,
+        productOwnerId = productOwnerId
+      )
+    )
 
     return completes()
   }
